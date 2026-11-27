@@ -1,0 +1,87 @@
+name: iPad 電量監控（每 15 分鐘）
+
+on:
+  schedule:
+    # GitHub 整點最塞，故意錯開分鐘數（UTC 時間，全天都跑）
+    - cron: "3,18,33,48 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["site/**", "scripts/**", "config.json", ".github/workflows/monitor.yml"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # 自動算出「你的帳號.github.io/你的專案名稱/」，別校複製後不用改
+      - name: 算出監控站網址
+        run: |
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          echo "SITE_URL=https://${owner}.github.io/${GITHUB_REPOSITORY#*/}/" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 取回上一次的資料（用來累積電量紀錄）
+        run: |
+          curl -fsSL --max-time 30 "${SITE_URL}data.json?t=$(date +%s)" -o prev.json || echo '{}' > prev.json
+
+      - name: 從 Jamf 抓最新電量
+        env:
+          JAMF_URL: ${{ secrets.JAMF_URL }}
+          JAMF_USER: ${{ secrets.JAMF_USER }}
+          JAMF_PASSWORD: ${{ secrets.JAMF_PASSWORD }}
+          JAMF_CLIENT_ID: ${{ secrets.JAMF_CLIENT_ID }}
+          JAMF_CLIENT_SECRET: ${{ secrets.JAMF_CLIENT_SECRET }}
+          GCHAT_WEBHOOK: ${{ secrets.GCHAT_WEBHOOK }}
+          JAMF_SEND_UPDATE_INVENTORY: ${{ vars.JAMF_SEND_UPDATE_INVENTORY }}
+          JAMF_UPDATE_INTERVAL_MIN: ${{ vars.JAMF_UPDATE_INTERVAL_MIN }}
+        run: python scripts/fetch_jamf.py --prev prev.json --out site/data.json
+
+      - name: 保持排程不被停用（超過 30 天沒更新就提交一次）
+        run: |
+          last=$(git log -1 --format=%ct)
+          if [ $(( $(date +%s) - last )) -gt 2592000 ]; then
+            date -u +%FT%TZ > .github/keepalive
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/keepalive
+            git commit -m "chore: 保持排程啟用"
+            git push
+          fi
+
+      - name: 分享卡片網址換成這個專案的網址（別校套用時 LINE、Facebook 預覽圖才抓得到）
+        run: sed -i "s#https://cagoooo.github.io/ipad-battery-monitor/#${SITE_URL}#g" site/index.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      # GitHub 偶爾剛收下網頁包裹、自己卻還查不到（Found 0 artifact），先等一下再發布，失敗就再試一次
+      - name: 等 GitHub 登記好網頁包裹
+        run: sleep 8
+      - id: deploy
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: 發布失敗時等 30 秒再試
+        if: steps.deploy.outcome == 'failure'
+        run: sleep 30
+      - id: deploy_retry
+        if: steps.deploy.outcome == 'failure'
+        uses: actions/deploy-pages@v4

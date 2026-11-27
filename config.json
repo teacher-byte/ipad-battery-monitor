@@ -1,0 +1,34 @@
+{
+  "_說明": "其他學校要改成自己的版本，只要改這個檔。改完推上 GitHub 就會自動套用。",
+  "school": {
+    "shortName": "石門國小",
+    "fullName": "桃園市龍潭區石門國民小學",
+    "team": "資訊組"
+  },
+  "thresholds": {
+    "low": 50,
+    "critical": 20,
+    "nightFull": 80,
+    "staleHours": 72
+  },
+  "night": {
+    "start": "00:00",
+    "end": "07:30"
+  },
+  "utcOffsetHours": 8,
+  "historyDays": 14,
+  "_carts說明": "依 Jamf「使用者名稱」或「裝置名稱」裡的代號分車。prefix 要出現在名稱開頭或前後有 - _，例如 STU3-12、SMES-STU3-12；最後一段數字會當成車上的格號。kind：student 會列入待檢查與推播，teacher 只顯示。",
+  "carts": [
+    { "prefix": "STU1", "label": "1、2 年級車", "kind": "student" },
+    { "prefix": "STU3", "label": "3 年級車", "kind": "student" },
+    { "prefix": "STU4", "label": "4 年級車", "kind": "student" },
+    { "prefix": "STU5", "label": "5 年級車", "kind": "student" },
+    { "prefix": "STU6", "label": "6 年級車", "kind": "student" },
+    { "prefix": "STU7", "label": "第七車（2024 新增）", "kind": "student" },
+    { "prefix": "ENG1", "label": "英文 1 車", "kind": "student" },
+    { "prefix": "ENG2", "label": "英文 2 車", "kind": "student" },
+    { "prefix": "ENG3", "label": "英文 3 車", "kind": "student" },
+    { "prefix": "TEA", "label": "老師機", "kind": "teacher" }
+  ],
+  "otherLabel": "其他"
+}
